@@ -1,4 +1,5 @@
 function db = yul_get_ucf101(paths, listf)
+    db.name = sprintf('ucf101_%s', listf(1:end-4));
     annodir = fullfile(paths.dsetSpecDir, 'ucf101', listf);
     list = textread(annodir, '%s');
     if ~isempty(strfind(listf, 'train'))

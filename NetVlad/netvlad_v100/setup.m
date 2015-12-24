@@ -1,4 +1,4 @@
-paths= localPaths();
+paths= yul_localPaths();
 
 run( fullfile(paths.libMatConvNet, 'matlab', 'vl_setupnn.m') );
 

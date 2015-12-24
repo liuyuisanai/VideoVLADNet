@@ -31,20 +31,20 @@ load( sprintf('%s%s.mat', paths.ourCNNs, netID), 'net' );
 %  `imageFns` is a cell array containing image file names relative to the `imPath` (i.e. `[imPath, imageFns{i}]` is a valid JPEG image), the representations are saved in binary format (single 4-byte floats). Batch size used for computing the forward pass can be changed by adding the `batchSize` parameter, e.g. `'batchSize', 10`. Note that if your input images are not all of same size (they are in place recognition datasets), you should set `batchSize` to 1.
 
 %  To test the network on a place recognition dataset, set up the test dataset
-dbTest= dbTokyo247();
-
-% Set the output filenames for the database/query image representations
-paths= localPaths();
-dbFeatFn= sprintf('%s%s_%s_db.bin', paths.outPrefix, netID, dbTest.name);
-qFeatFn = sprintf('%s%s_%s_q.bin', paths.outPrefix, netID, dbTest.name);
-
-% Compute db/query image representations
-serialAllFeats(net, dbTest.dbPath, dbTest.dbImageFns, dbFeatFn, 'batchSize', 5); % adjust batchSize depending on your GPU / network size
-serialAllFeats(net, dbTest.qPath, dbTest.qImageFns, qFeatFn, 'batchSize', 1); % Tokyo 24/7 query images have different resolutions so batchSize is constrained to 1
-
-% Measure recall@N
-[recall, ~, ~, opts]= testFromFn(dbTest, dbFeatFn, qFeatFn);
-plot(opts.recallNs, recall, 'ro-'); grid on; xlabel('N'); ylabel('Recall@N');
+% dbTest= dbTokyo247();
+% 
+% % Set the output filenames for the database/query image representations
+% paths= localPaths();
+% dbFeatFn= sprintf('%s%s_%s_db.bin', paths.outPrefix, netID, dbTest.name);
+% qFeatFn = sprintf('%s%s_%s_q.bin', paths.outPrefix, netID, dbTest.name);
+% 
+% % Compute db/query image representations
+% serialAllFeats(net, dbTest.dbPath, dbTest.dbImageFns, dbFeatFn, 'batchSize', 5); % adjust batchSize depending on your GPU / network size
+% serialAllFeats(net, dbTest.qPath, dbTest.qImageFns, qFeatFn, 'batchSize', 1); % Tokyo 24/7 query images have different resolutions so batchSize is constrained to 1
+% 
+% % Measure recall@N
+% [recall, ~, ~, opts]= testFromFn(dbTest, dbFeatFn, qFeatFn);
+% plot(opts.recallNs, recall, 'ro-'); grid on; xlabel('N'); ylabel('Recall@N');
 
 
 
