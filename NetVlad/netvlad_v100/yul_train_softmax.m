@@ -39,7 +39,9 @@ function sessionID= yul_train_softmax(dbTrain, dbVal, varargin)
         'recallNs', [1:5, 10:5:100], ...
         'useGPU', true, ...
         'numThreads', 12, ...
-        'startEpoch', 1 ...
+        'startEpoch', 1, ...
+        'clsnum', 101, ...
+        'featlen', 64*512 ...
         );
     paths= localPaths();
     
@@ -216,7 +218,7 @@ function sessionID= yul_train_softmax(dbTrain, dbVal, varargin)
         if opts.startEpoch>iEpoch, continue; end
         
         rng(43-1+iEpoch);
-        trainOrder= randperm(dbTrain.numQueries);
+        trainOrder= randperm(dbTrain.numVideos);
         
         ID= sprintf('ep%06d_latest', iEpoch);
         trainID= sprintf('%s_train', ID);
@@ -250,63 +252,16 @@ function sessionID= yul_train_softmax(dbTrain, dbVal, varargin)
             
             allRes= [];
             numTriplets= [];
-            
-            for iQuery= 1:opts.batchSize
+            loss_batch = zeros(1,1,opt.clsnum,opts.batchSize, 'single');
+            for iVideo= 1:opts.batchSize
                 
                 % ---------- compute closest positive and violating negatives
                 
-                qID= qIDs(iQuery);
-                potPosIDs= dbTrain.nontrivialPosQ(qID);
-                if isempty(potPosIDs), continue; end
-                
-                % ----- closest positive
-                
-                [posID, dPos]= yael_nn( ...
-                    dbFeat(:, potPosIDs), ...
-                    qFeat(:, qID), ...
-                    1 );
-                posID= potPosIDs(posID);
-                
-                % ----- hard negatives
-                
-                negIDs= unique([ ...
-                    auxData.negCache{qID}; ...
-                    dbTrain.sampleNegsQ(qID, opts.nNegChoice)]);
-                
-                % dsSq= sum( bsxfun(@minus, qFeat(:, qID), dbFeat(:, negIDs)) .^2, 1 )';
-                [inds, dsSq]= yael_nn( ...
-                    dbFeat(:, negIDs), ...
-                    qFeat(:, qID), ...
-                    min(opts.nNegCap*10, length(negIDs)) ... % 10x is hacky but fine
-                    );
-                negIDs= negIDs(inds);
-                auxData.negCache{qID}= negIDs(1:min(opts.nNegCache, end));
-                
-                veryHardNegs= dsSq < dPos;
-                violatingNegs= dsSq < dPos + opts.margin;
-                if opts.excludeVeryHard
-                    violatingNegs= violatingNegs & ~veryHardNegs;
-                end
-                nViolatingNegs= sum(violatingNegs);
-                nVeryHardNegs= sum(veryHardNegs);
-                loss= sum( max(dPos + opts.margin - dsSq, 0) );
-                if opts.printLoss
-                    relja_display('%s loss= %.4f, #violate= %d, #vhard= %d, (qID=%d)', ...
-                        opts.sessionID, loss, nViolatingNegs, nVeryHardNegs, qID);
-                end
-                
-                if nViolatingNegs==0, continue; end
-                negIDs= negIDs(violatingNegs);
-                dsSq= dsSq(violatingNegs);
-                if nViolatingNegs>opts.nNegCap
-                    [~, sortNegInds]= sort(dsSq); % not needed if using yael_nn below sampleNegsQ
-                    negIDs= negIDs( sortNegInds(1:opts.nNegCap) );
-                end
+                qID= qIDs(iVideo);
                 
                 % ---------- load images, normalize them
-                
-                imageFns= [ [dbTrain.qPath, dbTrain.qImageFns{qID}]; ...
-                    strcat( dbTrain.dbPath, dbTrain.dbImageFns([posID; negIDs]) ) ];
+                dirs = dir(fullfile(dbTrain.list{qID}, '*.jpg'));
+                imageFns = arrayfun(@(i_t)fullfile(dbTrain.list{qID}, dirs(i_t).name), 1:length(dirs), 'UniformOutput', false);
                 thisNumIms= length(imageFns);
                 
                 
@@ -337,67 +292,32 @@ function sessionID= yul_train_softmax(dbTrain, dbVal, varargin)
                         'conserveMemoryDepth', true, ...
                         'conserveMemory', false);
                 ims= [];
-                feats= reshape( gather(res(end).x), [], thisNumIms );
+%                 feats= reshape( gather(res(end).x), [], 1 );
+                prob = vl_nnsoftmax(res(end).x);
+                label_t = zeros(1,1,opt.clsnum,1,'single');
+                label_t(dbTrain.label{qID}) = 1;
+                loss_t = vl_nnsoftmax(res(end).x, label_t-prob);
+                loss_batch(:,:,:,iVideo) = loss_t;
+            end
+            % ---------- gradients
+            dzdy = mean(loss_batch, 4);
+            if opts.useGPU
+                dzdy= gpuArray(dzdy);
+            end
+
+
+
+            % ---------- backward pass
+            allRes= [allRes; ...
+                relja_simplenn(net, ims, dzdy, res, ...
+                    'skipForward', true, ...
+                    'backPropDepth', opts.backPropDepth, ...
+                    'freezeDropout', true, ...
+                    'conserveMemoryDepth', true, ...
+                    'conserveMemory', true)];
+            numTriplets= [numTriplets, nViolatingNegs];
                 
-                % ---------- compute real distances and violating negs
-                
-                dsSq= sum( bsxfun(@minus, feats(:, 1), feats(:, 2:end)) .^2, 1 )';
-                
-                dPos= dsSq(1);
-                veryHardNegs= dsSq(2:end) < dPos;
-                violatingNegs= dsSq(2:end) < dPos + opts.margin;
-                if opts.excludeVeryHard
-                    violatingNegs= violatingNegs & ~veryHardNegs;
-                end
-                nViolatingNegs= sum(violatingNegs);
-                nVeryHardNegs= sum(veryHardNegs);
-                loss= sum( max(dPos + opts.margin - dsSq(2:end), 0) );
-                if opts.printLoss
-                    relja_display('   real loss= %.4f, #violate= %d, #vhard= %d, (qID=%d)', ...
-                        loss, nViolatingNegs, nVeryHardNegs, qID);
-                end
-                losses(end+1)= loss;
-                
-                if nViolatingNegs==0, continue; end
-                violatingNegAbsInds= 2+find(violatingNegs);
-                
-                
-                % ---------- gradients
-                
-                dzdy= zeros(size(feats,1), thisNumIms, 'single');
-                
-                % 1-qID, 2-pos, 3:end-neg
-                
-                % grad(feat_query)
-                dzdy(:, iQAbs)= 2*( ...
-                    sum(feats(:, violatingNegAbsInds), 2) ...
-                    - nViolatingNegs*feats(:, iPosAbs) );
-                
-                % grad(feat_pos)
-                dzdy(:, iPosAbs)= 2* ...
-                    nViolatingNegs * ( feats(:, iPosAbs)-feats(:, iQAbs) );
-                
-                % grad(feat_neg)
-                dzdy(:, violatingNegAbsInds)= 2* (...
-                     bsxfun(@minus, feats(:, iQAbs), feats(:, violatingNegAbsInds))  );
-                
-                if opts.useGPU
-                    dzdy= gpuArray(dzdy);
-                end
-                
-                
-                
-                % ---------- backward pass
-                allRes= [allRes; ...
-                    relja_simplenn(net, ims, dzdy, res, ...
-                        'skipForward', true, ...
-                        'backPropDepth', opts.backPropDepth, ...
-                        'freezeDropout', true, ...
-                        'conserveMemoryDepth', true, ...
-                        'conserveMemory', true)];
-                numTriplets= [numTriplets, nViolatingNegs];
-                
-            end % for sample in batch
+
             
             clear res;
             
