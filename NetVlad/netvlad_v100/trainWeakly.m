@@ -172,7 +172,7 @@ function sessionID= trainWeakly(dbTrain, dbVal, varargin)
         serialAllFeats(net, dbTrain.dbPath, dbTrain.dbImageFns, ...
             opts.dbCheckpoint0, 'useGPU', opts.useGPU, 'batchSize', opts.computeBatchSize);
     end
-    if opts.test0
+    if false%opts.test0
         if ~exist(opts.qCheckpoint0val, 'file')
             serialAllFeats(net, dbVal.qPath, dbVal.qImageFns, ...
                 opts.qCheckpoint0val, 'useGPU', opts.useGPU, 'batchSize', opts.computeBatchSize);
