@@ -110,8 +110,8 @@ function sessionID= yul_train_softmax(dbTrain, dbVal, varargin)
         
         auxData= {};
         auxData.epochStartTime= {};
-        auxData.numTrain= dbTrain.numQueries;
-        auxData.negCache= cell(dbTrain.numQueries, 1);
+        auxData.numTrain= dbTrain.numVideos;
+        auxData.negCache= cell(dbTrain.numVideos, 1);
         
         obj= struct();
         obj.train= struct('loss', [], 'recall', [], 'rankloss', []);
@@ -154,7 +154,7 @@ function sessionID= yul_train_softmax(dbTrain, dbVal, varargin)
         net= relja_simplenn_move(net, 'gpu');
     end
     
-    nBatches= floor( dbTrain.numQueries / opts.batchSize ); % some might be cut, no biggie
+    nBatches= floor( dbTrain.numVideos / opts.batchSize ); % some might be cut, no biggie
     batchSaveFrequency= ceil(opts.saveFrequency/opts.batchSize);
     batchCompFeatsFrequency= ceil(opts.compFeatsFrequency/opts.batchSize);
     
