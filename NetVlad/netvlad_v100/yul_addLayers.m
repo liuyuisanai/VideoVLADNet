@@ -1,10 +1,11 @@
-function net= yul_addLayers(net, opts, dbTrain)
+function net= yul_addLayers(net, opts, dbFm)
     
     
     
     methodOpts= strsplit(opts.method, '_');
-    [~, sz]= relja_netOutputDim(net);
-    D= sz(3);
+%     [~, sz]= relja_netOutputDim(net);
+%     D= sz(3);
+    D= 512;
     
     if ismember('preL2', methodOpts)
         % normalize feature-wise
@@ -48,14 +49,14 @@ function net= yul_addLayers(net, opts, dbTrain)
         
         k= 64;
         paths= localPaths();
-        trainDescFn= sprintf('%s%s_%s_traindescs.mat', paths.initData, dbTrain.name, whichDesc);
-        clstFn= sprintf('%s%s_%s_k%03d_clst.mat', paths.initData, dbTrain.name, whichDesc, k);
+        trainDescFn= sprintf('%s%s_%s_traindescs.mat', paths.initData, dbFm.name, whichDesc);
+        clstFn= sprintf('%s%s_%s_k%03d_clst.mat', paths.initData, dbFm.name, whichDesc, k);
         
-        clsts= getClusters(net, opts, clstFn, k, dbTrain, trainDescFn);
+        clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn);
         
         load( trainDescFn, 'trainDescs');
         load( clstFn, 'clsts');
-        net.sessionID= sprintf('%s_%s', net.sessionID, dbTrain.name);
+        net.sessionID= sprintf('%s_%s', net.sessionID, dbFm.name);
         
         
         
@@ -109,12 +110,13 @@ function net= yul_addLayers(net, opts, dbTrain)
         'type', 'conv',...
         'name', 'cls',...
         'stride', [1, 1],...
-        'weights', cell(1, 2));
-    net.layers{end}.weight{1} = normrnd(0, 0.001, [1 1 opt.featlen opt.clsnum]);
-    
+        'weights', cell(1));
+    net.layers{end}.weights{1} = single(normrnd(0, 0.001, [1 1 opts.featlen opts.clsnum]));
+    net.layers{end}.weights{2} = single(zeros(1,512,'single'));
     % --- final softmax layer
     net.layers{end+1} = struct( ...
         'type', 'softmaxloss',...
+        'name', 'loss', ...
         'class', 0);
     
     % --- check if all options are used

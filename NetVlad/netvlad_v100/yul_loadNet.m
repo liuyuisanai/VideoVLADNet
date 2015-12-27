@@ -18,7 +18,7 @@ function net= yul_loadNet(netID, layerName)
     
     paths= localPaths();
     net= load( fullfile(paths.pretrainedCNNs, netname));
-    
+    net = net.net;
     if isfield(net, 'classes')
         net= rmfield(net, 'classes');
     end
@@ -29,7 +29,7 @@ function net= yul_loadNet(netID, layerName)
     else
         layerNameStr= '';
     end
-    net= relja_swapLayersForEfficiency(net);
+%     net= relja_swapLayersForEfficiency(net);
     net.netID= netID;
     
     net.sessionID= sprintf('%s_offtheshelf%s', netID, layerNameStr);

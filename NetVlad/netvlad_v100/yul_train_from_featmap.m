@@ -51,7 +51,7 @@ function sessionID= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
     net= yul_loadNet(opts.netID);
 
     %% --- Add my layers
-    net= yul_addLayers(net, opts, dbTrain);
+    net= yul_addLayers(net, opts, dbFmTrain);
 
     %% --- Prepare for train
     net= netPrepareForTrain(net);
@@ -71,8 +71,30 @@ function sessionID= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
     batchCompFeatsFrequency= ceil(opts.compFeatsFrequency/opts.batchSize);
     
     %% --- Training
-    
-    
-    
-    
+    for iEpoch= 1:opts.nEpoch
+        relja_progress(iEpoch, opts.nEpoch, 'epoch', progEpoch);
+        auxData.epochStartTime{end+1}= datestr(now);
+        
+        % change learning rate
+        if iEpoch~=1 && rem(iEpoch, opts.lrDownFreq)==1
+            oldLr= lr;
+            lr= lr/opts.lrDownFactor;
+            relja_display('Changing learning rate from %f to %f', oldLr, lr); clear oldLr;
+            batchCompFeatsFrequency= round(batchCompFeatsFrequency*opts.lrDownFactor);
+        end
+        relja_display('Learning rate %f', lr);
+        
+        if opts.startEpoch>iEpoch, continue; end
+        rng(43-1+iEpoch);
+        trainOrder= randperm(dbTrain.numVideos);
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 end
