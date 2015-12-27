@@ -113,10 +113,10 @@ function net= yul_addLayers(net, opts, dbTrain)
     net.layers{end}.weight{1} = normrnd(0, 0.001, [1 1 opt.featlen opt.clsnum]);
     
     % --- final softmax layer
-%     net.layers{end+1} = struct('pad', [0, 0, 0, 0],...
-%         'type', 'softmax',...
-%         'name', 'prob');
-%     
+    net.layers{end+1} = struct( ...
+        'type', 'softmaxloss',...
+        'class', 0);
+    
     % --- check if all options are used
     if ~isempty(methodOpts)
         error('Unsupported options (method=%s): %s', opts.method, strjoin(methodOpts, ', '));
