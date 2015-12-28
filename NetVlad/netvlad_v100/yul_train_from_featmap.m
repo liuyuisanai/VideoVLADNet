@@ -155,13 +155,13 @@ function [net,res] = accumulate_gradients(opts, lr, batchSize, net, res, mmap)
           res(l).dzdw{j} = res(l).dzdw{j} + tmp ;
         end
 
-        if isfield(net.layers{l}, 'weights')
+
           net.layers{l}.momentum{j} = ...
             opts.momentum * net.layers{l}.momentum{j} ...
             - thisDecay * net.layers{l}.weights{j} ...
             - (1 / batchSize) * res(l).dzdw{j} ;
           net.layers{l}.weights{j} = net.layers{l}.weights{j} + thisLR * net.layers{l}.momentum{j} ;
-        end
+
       end
     end
 end
