@@ -68,12 +68,13 @@ function sessionID= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
     end
     nBatches= floor( dbFmTrain.numVideos / opts.batchSize ); % some might be cut, no biggie
     batchSaveFrequency= ceil(opts.saveFrequency/opts.batchSize);
-    batchCompFeatsFrequency= ceil(opts.compFeatsFrequency/opts.batchSize);
-    
+    progEpoch= tic;
+    lr= opts.learningRate;
+    loss_tr = [];
+    res = [];
     %% --- Training
-    for iEpoch= 1:opts.nEpoch
+    for iEpoch = 1:opts.nEpoch
         relja_progress(iEpoch, opts.nEpoch, 'epoch', progEpoch);
-        auxData.epochStartTime{end+1}= datestr(now);
         
         % change learning rate
         if iEpoch~=1 && rem(iEpoch, opts.lrDownFreq)==1
@@ -83,18 +84,84 @@ function sessionID= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
             batchCompFeatsFrequency= round(batchCompFeatsFrequency*opts.lrDownFactor);
         end
         relja_display('Learning rate %f', lr);
-        
+        progBatch= tic;
         if opts.startEpoch>iEpoch, continue; end
         rng(43-1+iEpoch);
-        trainOrder= randperm(dbTrain.numVideos);
+        trainOrder= randperm(dbFmTrain.numVideos);
+        for iBatch = 1 : nBatches
+            relja_progress(iBatch, nBatches, ...
+                sprintf('%s epoch %d batch', opts.sessionID, iEpoch), progBatch);
+            if rem(iBatch, batchSaveFrequency)==0
+                saveNet(net, obj, opts, auxData, ID, sprintf('epoch %d batch %d', iEpoch, iBatch));
+                if opts.doDraw, plotResults(obj, opts, auxData); end
+            end
+            bid = trainOrder( (iBatch-1)*opts.batchSize + (1:opts.batchSize) );
+            featmap_t = yul_read_featmap_from_bin(dbFmTrain.path(bid), [240, 20, 512]);
+            class_t = dbFmTrain.label(bid);
+            net.layers{end}.class = single(class_t);
+            res= yul_simplenn(net, featmap_t, 1, res, ...
+                        'backPropDepth', opts.backPropDepth, ... % just for memory
+                        'conserveMemoryDepth', true, ...
+                        'conserveMemory', false);
+            [net,res] = accumulate_gradients(opts, lr, opts.batchSize, net, res) ;
+            dzdy = res(end).x;
+            loss_tr(end+1) = dzdy;
+            plot(loss_tr);
+            drawnow;
+        end % for ibatch
+    end % for iepoch
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
+end
+
+%% -------------------------------------------------------------------------
+function err = error_multiclass(opts, labels, res)
+% -------------------------------------------------------------------------
+    predictions = gather(res(end-1).x) ;
+    [~,predictions] = sort(predictions, 3, 'descend') ;
+
+    % be resilient to badly formatted labels
+    if numel(labels) == size(predictions, 4)
+      labels = reshape(labels,1,1,1,[]) ;
+    end
+
+    % skip null labels
+    mass = single(labels(:,:,1,:) > 0) ;
+    if size(labels,3) == 2
+      % if there is a second channel in labels, used it as weights
+      mass = mass .* labels(:,:,2,:) ;
+      labels(:,:,2,:) = [] ;
+    end
+
+    error = ~bsxfun(@eq, predictions, labels) ;
+    err(1,1) = sum(sum(sum(mass .* error(:,:,1,:)))) ;
+    err(2,1) = sum(sum(sum(mass .* min(error(:,:,1:5,:),[],3)))) ;
+end
+
+%% -------------------------------------------------------------------------
+function [net,res] = accumulate_gradients(opts, lr, batchSize, net, res, mmap)
+% -------------------------------------------------------------------------
+    for l=numel(net.layers):-1:1
+      for j=1:numel(res(l).dzdw)
+        thisDecay = opts.weightDecay * net.layers{l}.weightDecay(j) ;
+        thisLR = lr * net.layers{l}.learningRate(j) ;
+
+        % accumualte from multiple labs (GPUs) if needed
+        if nargin >= 6
+          tag = sprintf('l%d_%d',l,j) ;
+          tmp = zeros(size(mmap.Data(labindex).(tag)), 'single') ;
+          for g = setdiff(1:numel(mmap.Data), labindex)
+            tmp = tmp + mmap.Data(g).(tag) ;
+          end
+          res(l).dzdw{j} = res(l).dzdw{j} + tmp ;
+        end
+
+        if isfield(net.layers{l}, 'weights')
+          net.layers{l}.momentum{j} = ...
+            opts.momentum * net.layers{l}.momentum{j} ...
+            - thisDecay * net.layers{l}.weights{j} ...
+            - (1 / batchSize) * res(l).dzdw{j} ;
+          net.layers{l}.weights{j} = net.layers{l}.weights{j} + thisLR * net.layers{l}.momentum{j} ;
+        end
+      end
+    end
 end
