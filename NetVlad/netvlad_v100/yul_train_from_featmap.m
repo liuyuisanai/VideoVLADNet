@@ -1,4 +1,4 @@
-function sessionID= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
+function net= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
     opts= struct(...
         'netID', 'caffe', ...
         'layerName', 'conv5', ...
@@ -63,6 +63,7 @@ function sessionID= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
     assert( all(ismember(opts.fixLayers, relja_layerNames(net))) );
     
     %% --- Train para config
+    net.onGPU=0;
     if opts.useGPU
         net= relja_simplenn_move(net, 'gpu');
     end
@@ -92,25 +93,25 @@ function sessionID= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
             relja_progress(iBatch, nBatches, ...
                 sprintf('%s epoch %d batch', opts.sessionID, iEpoch), progBatch);
             if rem(iBatch, batchSaveFrequency)==0
-                saveNet(net, obj, opts, auxData, ID, sprintf('epoch %d batch %d', iEpoch, iBatch));
-                if opts.doDraw, plotResults(obj, opts, auxData); end
+                save(sprintf('snapshot/net_iepoch%d_ibatch%d.mat', iEpoch, iBatch), 'net');
             end
             bid = trainOrder( (iBatch-1)*opts.batchSize + (1:opts.batchSize) );
             featmap_t = yul_read_featmap_from_bin(dbFmTrain.path(bid), [240, 20, 512]);
             class_t = dbFmTrain.label(bid);
             net.layers{end}.class = single(class_t);
-            res= yul_simplenn(net, featmap_t, 1, res, ...
+            res= yul_simplenn(net, gpuArray(featmap_t), 1, res, ...
                         'backPropDepth', opts.backPropDepth, ... % just for memory
                         'conserveMemoryDepth', true, ...
                         'conserveMemory', false);
             [net,res] = accumulate_gradients(opts, lr, opts.batchSize, net, res) ;
             dzdy = res(end).x;
-            loss_tr(end+1) = dzdy;
+            loss_tr(end+1) = gather(dzdy);
             plot(loss_tr);
             drawnow;
         end % for ibatch
     end % for iepoch
-        
+    net.epoch = iEpoch;
+    save(sprintf('snapshot/net_iepoch%d.mat', iEpoch), 'net');
 end
 
 %% -------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-function net= yul_loadNet(netID, layerName)
+function net = yul_loadNet( netID, layerName )
     if nargin<2, layerName= '_relja_none_'; end
     
     switch netID
@@ -29,7 +29,7 @@ function net= yul_loadNet(netID, layerName)
     else
         layerNameStr= '';
     end
-%     net= relja_swapLayersForEfficiency(net);
+    net= relja_swapLayersForEfficiency(net);
     net.netID= netID;
     
     net.sessionID= sprintf('%s_offtheshelf%s', netID, layerNameStr);
