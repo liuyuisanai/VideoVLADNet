@@ -1,4 +1,4 @@
-function net= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
+function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
     opts= struct(...
         'netID', 'caffe', ...
         'layerName', 'conv5', ...
@@ -40,21 +40,27 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
         'numThreads', 12, ...
         'startEpoch', 1, ...
         'clsnum', 101, ...
-        'featlen', 64*512 ...
+        'featlen', 64*512, ...
+        'net', struct([]) ...
         );
     paths= localPaths();
     opts= vl_argparse(opts, varargin);
     opts.fixLayers = {};
     
     %% ----- Network setup
+    if ~isempty(net)
+        iepoch_ = net.epoch;
+        opts.net = [];
+    else
+        net= yul_loadNet(opts.netID);
+        iepoch_ = 1;
+        net.lr = opts.learningRate;
+        %% --- Add my layers
+        net= yul_addLayers(net, opts, dbFmTrain);
 
-    net= yul_loadNet(opts.netID);
-
-    %% --- Add my layers
-    net= yul_addLayers(net, opts, dbFmTrain);
-
-    %% --- Prepare for train
-    net= netPrepareForTrain(net);
+        %% --- Prepare for train
+        net= netPrepareForTrain(net);
+    end
     
     %% --- BP config
     opts.backPropToLayer= 1;
@@ -73,8 +79,9 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
     lr= opts.learningRate;
     loss_tr = [];
     res = [];
+    lr = opts.learningRate / max(1, opts.lrDownFactor*floor(iepoch_/opts.lrDownFreq));
     %% --- Training
-    for iEpoch = 1:opts.nEpoch
+    for iEpoch = iepoch_:opts.nEpoch
         relja_progress(iEpoch, opts.nEpoch, 'epoch', progEpoch);
         
         % change learning rate
@@ -82,7 +89,6 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
             oldLr= lr;
             lr= lr/opts.lrDownFactor;
             relja_display('Changing learning rate from %f to %f', oldLr, lr); clear oldLr;
-            batchCompFeatsFrequency= round(batchCompFeatsFrequency*opts.lrDownFactor);
         end
         relja_display('Learning rate %f', lr);
         progBatch= tic;
@@ -109,9 +115,9 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, varargin)
             plot(loss_tr);
             drawnow;
         end % for ibatch
+        net.epoch = iEpoch;
+        save(sprintf('snapshot/net_iepoch%d.mat', iEpoch), 'net');
     end % for iepoch
-    net.epoch = iEpoch;
-    save(sprintf('snapshot/net_iepoch%d.mat', iEpoch), 'net');
 end
 
 %% -------------------------------------------------------------------------

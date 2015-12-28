@@ -105,6 +105,8 @@ function net= yul_addLayers(net, opts, dbFm)
     % --- final normalization
     net.layers{end+1}= layerWholeL2Normalize('postL2');
     
+    % --- new feature layer
+    
     % --- class layer
     net.layers{end+1} = struct('pad', [0, 0, 0, 0],...
         'type', 'conv',...
