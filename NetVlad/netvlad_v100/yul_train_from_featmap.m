@@ -50,7 +50,6 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
     %% ----- Network setup
     if ~isempty(net)
         iepoch_ = net.epoch;
-        opts.net = [];
     else
         net= yul_loadNet(opts.netID);
         iepoch_ = 1;
@@ -69,19 +68,19 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
     assert( all(ismember(opts.fixLayers, relja_layerNames(net))) );
     
     %% --- Train para config
-    net.onGPU=0;
     if opts.useGPU
         net= relja_simplenn_move(net, 'gpu');
     end
     nBatches= floor( dbFmTrain.numVideos / opts.batchSize ); % some might be cut, no biggie
     batchSaveFrequency= ceil(opts.saveFrequency/opts.batchSize);
     progEpoch= tic;
-    lr= opts.learningRate;
+%     lr= opts.learningRate;
     loss_tr = [];
     res = [];
     lr = opts.learningRate / max(1, opts.lrDownFactor*floor(iepoch_/opts.lrDownFreq));
     %% --- Training
     for iEpoch = iepoch_:opts.nEpoch
+        net.epoch = iEpoch;
         relja_progress(iEpoch, opts.nEpoch, 'epoch', progEpoch);
         
         % change learning rate
@@ -90,6 +89,7 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
             lr= lr/opts.lrDownFactor;
             relja_display('Changing learning rate from %f to %f', oldLr, lr); clear oldLr;
         end
+        net.lr = lr;
         relja_display('Learning rate %f', lr);
         progBatch= tic;
         if opts.startEpoch>iEpoch, continue; end
@@ -105,7 +105,8 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
             featmap_t = yul_read_featmap_from_bin(dbFmTrain.path(bid), [240, 20, 512]);
             class_t = dbFmTrain.label(bid);
             net.layers{end}.class = single(class_t);
-            res= yul_simplenn(net, gpuArray(featmap_t), 1, res, ...
+            featmap_gpu = gpuArray(featmap_t);
+            res= yul_simplenn(net, featmap_gpu, 1, res, ...
                         'backPropDepth', opts.backPropDepth, ... % just for memory
                         'conserveMemoryDepth', true, ...
                         'conserveMemory', false);
@@ -115,7 +116,6 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
             plot(loss_tr);
             drawnow;
         end % for ibatch
-        net.epoch = iEpoch;
         save(sprintf('snapshot/net_iepoch%d.mat', iEpoch), 'net');
     end % for iepoch
 end
