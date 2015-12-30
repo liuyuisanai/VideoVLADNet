@@ -52,6 +52,7 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
         iepoch_ = net.epoch;
     else
         net= yul_loadNet(opts.netID);
+        net.onGPU = 0;
         iepoch_ = 1;
         net.lr = opts.learningRate;
         %% --- Add my layers
