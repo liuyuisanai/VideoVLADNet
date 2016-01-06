@@ -2,6 +2,7 @@
 % db_video = yul_get_ucf101(paths_video, 'trainlist01.txt');
 % dirs = arrayfun(@(i_t)dir(fullfile(db_video.list{i_t}, '*.jpg')), 1:length(db_video.list), 'UniformOutput', false);
 gpunum = 4;
+dirs = arrayfun(@(i_t)dir(fullfile(dbVal.list{i_t}, '*.jpg')), 1:length(dbVal.list), 'UniformOutput', false);
 parfor i_gpu = 1 : gpunum
     gputic = tic();
     gpuDevice(i_gpu);

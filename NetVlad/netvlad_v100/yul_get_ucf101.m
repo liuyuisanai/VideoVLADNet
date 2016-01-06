@@ -7,7 +7,8 @@ function db = yul_get_ucf101(paths, listf)
         db.list = cellfun(@(x) fullfile(paths.dsetRootUCF101, x(1:end-4)), list(1:2:end), 'UniformOutput', false);
         assert(numel(db.label) == numel(db.list), 'DB load error: list and label size not match!');
     else
-        db.list = cellfun(@(x) fullfile(paths.dsetRootUCF101, x(1:end-4)), list(1:2:end), 'UniformOutput', false);
+        db.list = cellfun(@(x) fullfile(paths.dsetRootUCF101, x(1:end-4)), list, 'UniformOutput', false);
+        db.label = load('G:\temp\video\ucfTrainTestlist\testlabel01.txt');
     end
     db.numVideos = length(db.list);
 end

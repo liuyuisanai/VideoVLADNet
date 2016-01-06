@@ -1,19 +1,16 @@
 % paths_video = yul_localPaths();
 % db_video = yul_get_ucf101(paths_video, 'trainlist01.txt');
 % dirs = arrayfun(@(i_t)dir(fullfile(db_video.list{i_t}, '*.jpg')), 1:length(db_video.list), 'UniformOutput', false);
-gpunum = 4;
-parfor i_gpu = 1 : gpunum
     gputic = tic();
-    gpuDevice(i_gpu);
     net= loadNet('vd16', 'conv5_3');
     net= relja_simplenn_move(net, 'gpu');
-    ids{i_gpu} = find(mod(1 : length(db.list), gpunum)+1 == i_gpu);
-    ids_t = ids{i_gpu};
+    ids_t = 1:numel(dbVal.list);
+%     dirs = arrayfun(@(i_t)dir(fullfile(dbVal.list{i_t}, '*.jpg')), 1:length(dbVal.list), 'UniformOutput', false);
     for i = 1 : length(ids_t)
         tic
         thisid = ids_t(i);
-        fprintf('Solver %d: Loading feature for %d/%d...', i_gpu, i, length(ids_t));
-        list = arrayfun(@(i_t)fullfile(db.list{ids_t(i)}, dirs{ids_t(i)}(i_t).name), 1:length(dirs{ids_t(i)}), 'UniformOutput', false);
+        fprintf('Solver %d: Loading feature for %d/%d...', 1, i, length(ids_t));
+        list = arrayfun(@(i_t)fullfile(dbVal.list{ids_t(i)}, dirs{ids_t(i)}(i_t).name), 1:length(dirs{ids_t(i)}), 'UniformOutput', false);
         ims_ = vl_imreadjpeg(list, 'numThreads', 16);
         for iIm= 1:length(ims_)
             if size(ims_{iIm},3)==1
@@ -37,4 +34,3 @@ parfor i_gpu = 1 : gpunum
     end
     fprintf('\n\nSolver %d:Done.', i_gpu);
     toc(gputic)
-end
