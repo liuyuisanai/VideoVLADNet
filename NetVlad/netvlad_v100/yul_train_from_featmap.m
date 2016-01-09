@@ -43,7 +43,7 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
         'featlen', 64*512, ...
         'net', struct([]) ...
         );
-    paths= localPaths();
+    paths= yul_localPaths();
     opts= vl_argparse(opts, varargin);
     opts.fixLayers = {};
     

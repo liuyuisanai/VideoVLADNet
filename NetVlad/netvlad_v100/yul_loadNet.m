@@ -16,7 +16,7 @@ function net = yul_loadNet( netID, layerName )
             error( 'Unknown network ID', netID );
     end
     
-    paths= localPaths();
+    paths= yul_localPaths();
     net= load( fullfile(paths.pretrainedCNNs, netname));
     net = net.net;
     if isfield(net, 'classes')

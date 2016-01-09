@@ -5,11 +5,12 @@ paths= yul_localPaths();
 dbTrain= yul_get_ucf101(paths, 'trainlist01.txt');
 dbVal= yul_get_ucf101(paths, 'testlist01.txt');
 lr= 0.001;
+net=[];
 
 %% Cannot modified
 dbFm_train = yul_get_dbFm(dbTrain, paths);
 dbFm_test = yul_get_dbFm(dbVal, paths);
-load('C:\Users\scien\Documents\MATLAB\netvlad_v100\snapshot\net_iepoch17_ibatch125.mat');
+% load('C:\Users\scien\Documents\MATLAB\netvlad_v100\snapshot\net_iepoch17_ibatch125.mat');
 sessionID= yul_train_from_featmap(dbFm_train, dbFm_test, net, ...
     'netID', netID, ...
     'method', 'vlad_preL2_intra', ...
