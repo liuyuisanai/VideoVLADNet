@@ -103,16 +103,16 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, varargin)
                 save(sprintf('snapshot/net_iepoch%d_ibatch%d.mat', iEpoch, iBatch), 'net');
             end
             bid = trainOrder( (iBatch-1)*opts.batchSize + (1:opts.batchSize) );
-            featmap_t = yul_read_featmap_from_bin(dbFmTrain.path(bid), [240, 20, 512]);
+            featmap_t = yul_read_featmap_from_bin(dbFmTrain.path(bid), [112, 10, 512]);
             class_t = dbFmTrain.label(bid);
             net.layers{end}.class = single(class_t);
             featmap_gpu = gpuArray(featmap_t);
-            res= yul_simplenn(net, featmap_gpu, 1, res, ...
+            res= yul_simplenn(net, featmap_gpu, 1, [], ...
                         'backPropDepth', opts.backPropDepth, ... % just for memory
                         'conserveMemoryDepth', true, ...
                         'conserveMemory', false);
             [net,res] = accumulate_gradients(opts, lr, opts.batchSize, net, res) ;
-            dzdy = res(end).x;
+            dzdy = res(end).x/opts.batchSize;
             loss_tr(end+1) = gather(dzdy);
             plot(loss_tr);
             drawnow;

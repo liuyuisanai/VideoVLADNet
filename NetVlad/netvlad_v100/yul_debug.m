@@ -1,8 +1,16 @@
+addpath(genpath(fullfile(fileparts(fileparts(fileparts(pwd))), 'Script')));
 loss_te = [];
 loss_tr=[];
-dbFmTrain = dbFm_train;
-dbFmVal = dbFm_test;
-load('C:\Users\scien\Documents\MATLAB\netvlad_v100\snapshot\net_iepoch17_ibatch125.mat');
+setup;
+netID= 'featmapVlad';
+paths= yul_localPaths();
+% dbTrain= yul_get_ucf101(paths, 'trainlist01.txt');
+% dbVal= yul_get_ucf101(paths, 'testlist01.txt');
+% lr= 0.001;
+% dbFmTrain = yul_get_dbFm(dbTrain, paths);
+% dbFmVal = yul_get_dbFm(dbVal, paths);
+% 
+% load('output\VLADfeat_pool5.mat');
 opts= struct(...
         'netID', 'featmapVlad', ...
         'layerName', 'conv5', ...
@@ -48,59 +56,64 @@ opts= struct(...
         'net', struct([]) ...
         );
     
-net= yul_loadNet(opts.netID);
-net.onGPU = 0;
-iepoch_ = 1;
-net.lr = opts.learningRate;
-%% --- Add my layers
-net= yul_addLayers(net, opts, dbFmTrain);
-res=[];
-%% --- Prepare for train
-net= netPrepareForTrain(net);
-
+% load('snapshot/net0_softmax_debug.mat')
+% iepoch_ = 1;
+% net.lr = opts.learningRate;
+% %% --- Add my layers
+% % net= yul_addLayers(net, opts, dbFmTrain);
+% res=[];
+% %% --- Prepare for train
+% % net= netPrepareForTrain(net);
+% 
 opts.backPropToLayer= 1;
     opts.backPropToLayerName= net.layers{opts.backPropToLayer}.name;
     opts.backPropDepth= length(net.layers)-opts.backPropToLayer+1;
-    
+%     
+opts.batchSize=128;
+feattr = zeros(1,1,32768,opts.batchSize,'single');
+featte = zeros(1,1,32768,size(label_test, 1),'single');
+load('snapshot/net0_softmax_debug.mat');
 if opts.useGPU
         net= relja_simplenn_move(net, 'gpu');
 end
-    
+
+lr=0.001;
+loss_tr = [];
+loss_te = [];
 for iBatch = 1 : 10000
     %% Train
-    fprintf('Iter:%d --- ', iBatch);
-    bid = randi([1,183],[opts.batchSize, 1]);
-    featmap_t = yul_read_featmap_from_bin(dbFmTrain.path(bid), [240, 20, 512]);
-    class_t = dbFmTrain.label(bid);
+%     fprintf('Iter:%d --- ', iBatch);
+    bid = randperm(size(feature_train, 1), opts.batchSize);
+    feattr(1,1,:,:) = feature_train(bid,:)';
+    class_t = label_train(bid);
     net.layers{end}.class = single(class_t);
-    featmap_gpu = gpuArray(featmap_t);
-    res= yul_simplenn(net, featmap_gpu, 1, res, ...
+    feattr_gpu = gpuArray(feattr);
+    res= yul_simplenn(net, feattr_gpu, 1, [], ...
                 'backPropDepth', opts.backPropDepth, ... % just for memory
                 'conserveMemoryDepth', true, ...
                 'conserveMemory', false);
     [net,res] = accumulate_gradients(opts, lr, opts.batchSize, net, res) ;
     dzdy = res(end).x;
     loss_tr(end+1) = gather(dzdy/opts.batchSize);
-    fprintf('loss=%f\n', loss_tr(end));
+%     fprintf('loss=%f\n', loss_tr(end));
     figure(1)
     plot(loss_tr, 'b');
     drawnow;
 %% Test
-    if mod(iBatch,10)<1
+    if mod(iBatch,100)==1
         testloss = 0;
-        for i = 1 : ceil(76/opts.batchSize)
-            bid = mod((i-1)*opts.batchSize:i*opts.batchSize-1, 76)+1;
-            featmap_t = yul_read_featmap_from_bin(dbFmVal.path(bid), [240, 20, 512]);
-            class_t = dbFmVal.label(bid);
+        %test
+            featte(1,1,:,:) = feature_test';
+            class_t = label_test;
             net.layers{end}.class = single(class_t);
-            featmap_gpu = gpuArray(featmap_t);
-            res= yul_simplenn(net, featmap_gpu, 1, res, ...
+            
+            res= yul_simplenn(net, gpuArray(featte), 1, [], ...
                         'backPropDepth', opts.backPropDepth, ... % just for memory
                         'conserveMemoryDepth', true, ...
                         'conserveMemory', false);
             testloss = testloss + res(end).x;
-        end
-        testloss = gather(testloss) / ceil(76/opts.batchSize) / opts.batchSize;
+        %
+        testloss = gather(testloss) / size(label_test, 1);
         loss_te(end+1) = testloss;
         figure(2)
         fprintf('===========Test loss=%f============\n', loss_te(end));

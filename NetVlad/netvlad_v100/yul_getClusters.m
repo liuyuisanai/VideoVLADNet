@@ -12,8 +12,8 @@ function clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn)
             
             relja_display('Computing training descriptors');
             
-            nTrain= 50000;
-            nPerImage= 100;
+            nTrain= 256000;
+            nPerImage= 30;
             nIm= ceil(nTrain/nPerImage);
             
             rng(43);
@@ -69,7 +69,7 @@ function clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn)
         % ---------- Cluster descriptors
         
         relja_display('Computing clusters');
-        clsts= yael_kmeans(trainDescs, k, 'niter', 100, 'verbose', 0, 'seed', 43);
+        clsts= yael_kmeans(trainDescs, k, 'niter', 500, 'verbose', 2, 'seed', 43);
         clear trainDescs;
         
         save(clstFn, 'clsts');
