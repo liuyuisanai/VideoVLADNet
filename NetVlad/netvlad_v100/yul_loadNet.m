@@ -18,7 +18,9 @@ function net = yul_loadNet( netID, layerName )
     
     paths= yul_localPaths();
     net= load( fullfile(paths.pretrainedCNNs, netname));
-    net = net.net;
+    if isfield(net, 'net')
+        net = net.net;
+    end
     if isfield(net, 'classes')
         net= rmfield(net, 'classes');
     end

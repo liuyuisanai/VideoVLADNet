@@ -1,15 +1,19 @@
 % paths_video = yul_localPaths();
 % db_video = yul_get_ucf101(paths_video, 'trainlist01.txt');
 % dirs = arrayfun(@(i_t)dir(fullfile(db_video.list{i_t}, '*.jpg')), 1:length(db_video.list), 'UniformOutput', false);
+setup;
 gpunum = 8;
-dirs = arrayfun(@(i_t)dir(fullfile(db.list{i_t}, '*.jpg')), 1:length(db.list), 'UniformOutput', false);
+% dirs = arrayfun(@(i_t)dir(fullfile(db.list{i_t}, '*.jpg')), 1:length(db.list), 'UniformOutput', false);
+% featmap_train = zeros(7,10,512,16,9537,'single');
+% db.list(2605:2608)=[];
 parfor i_gpu = 1 : gpunum
     gputic = tic();
     gpuDevice(i_gpu);
-    net= yul_loadNet('vd16', 'pool5');
+    net= yul_loadNet('vd19', 'conv5_4');
     net= relja_simplenn_move(net, 'gpu');
     ids{i_gpu} = find(mod(1 : length(db.list), gpunum)+1 == i_gpu);
     ids_t = ids{i_gpu};
+    featmap_t{i_gpu} = zeros(15,20,512,16,length(ids_t),'single');
     for i = 1 : length(ids_t)
         tic
         thisid = ids_t(i);
@@ -32,8 +36,9 @@ parfor i_gpu = 1 : gpunum
         'conserveMemoryDepth', true, ...
         'conserveMemory', false);
 %         featmap{i_gpu}{i} = gather(yul_put_n_2_h(res(end).x));
-        filename = sprintf('D:/YuLiu/video/feature_pool5/vgg16_conv5_3_ucf101_train01_%d.bin', thisid);
+        filename = sprintf('D:/YuLiu/video/feature_vgg19_pool5/vgg19_pool5_ucf101_train01_%d.bin', thisid);
         writebin(gather(yul_put_n_2_h(res(end).x)), filename);
+        featmap_t{i_gpu}(:,:,:,:,i) = gather(res(end).x);
         toc
     end
     fprintf('\n\nSolver %d:Done.', i_gpu);

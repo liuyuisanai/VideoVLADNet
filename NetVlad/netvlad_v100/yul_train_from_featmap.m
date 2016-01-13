@@ -5,7 +5,7 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, FmTrain, FmVal, net, in
         'method', 'vlad_preL2_intra', ...
         'batchSize', 4, ...
         'learningRate', 0.0001, ...
-        'lrDownFreq', 5, ...
+        'lrDownFreq', 8, ...
         'lrDownFactor', 2, ...
         'weightDecay', 0.001, ...
         'momentum', 0.9, ...
@@ -129,13 +129,15 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, FmTrain, FmVal, net, in
             legend('loss_tr', 'loss_tr', 'Location', 'SouthWest');
             hold off
             drawnow;
-            if mod(iBatch, floor(nBatches/10))==1
+            if mod(iBatch, floor(nBatches/4))==1
                 fprintf('Start testing...');
                 loss_t = 0;
                 predicted = [];
                 testnum = ceil(length(dbFmVal.label)/opts.batchSize);
+                tic
                 for i_test = 1 : testnum
                     drawnow;
+                    fprintf('(%.2f%%)', i_test*100/testnum);
                     testid = mod((i_test-1)*opts.batchSize:i_test*opts.batchSize-1,length(dbFmVal.label))+1;
                     featmap_t = FmVal(:,:,:,testid);
                     class_t = dbFmVal.label(testid);
@@ -152,10 +154,12 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, FmTrain, FmVal, net, in
                     [~,t] = max(t);
                     predicted(testid) = p;
                 end
+                toc;
                 loss_te(end+1) = loss_t / testnum; 
-                acc_te(end+1) = sum(predicted==dbFmVal.label) / length(dbFmVal.label);
+                acc_te(end+1) = sum(predicted==dbFmVal.label') / length(dbFmVal.label);
                 figure(2)
                 plot(loss_te, 'r');
+                fprintf('=====Test loss:%.2f acc:%.2f\n=====', loss_te(end), acc_te(end));
                 hold on;
                 plot(acc_te, 'g');
                 legend('loss_te', 'loss_te', 'Location', 'SouthWest');
