@@ -1,4 +1,4 @@
-function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, info, varargin)
+function net= yul_train_from_featmap(dbFmTrain, dbFmVal, FmTrain, FmVal, net, info, varargin)
     opts= struct(...
         'netID', 'caffe', ...
         'layerName', 'conv5', ...
@@ -106,7 +106,7 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, info, varargin)
                 save(sprintf('snapshot/net_%s_iepoch%d_ibatch%d.mat', info, iEpoch, iBatch), 'net');
             end
             bid = trainOrder( (iBatch-1)*opts.batchSize + (1:opts.batchSize) );
-            featmap_t = yul_read_featmap_from_bin(dbFmTrain.path(bid), [112, 10, 512]);
+            featmap_t = FmTrain(:,:,:,bid);
             class_t = dbFmTrain.label(bid);
             net.layers{end}.class = single(class_t);
             featmap_gpu = gpuArray(featmap_t);
@@ -130,10 +130,14 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, info, varargin)
             hold off
             drawnow;
             if mod(iBatch, floor(nBatches/10))==1
+                fprintf('Start testing...');
+                loss_t = 0;
+                predicted = [];
                 testnum = ceil(length(dbFmVal.label)/opts.batchSize);
                 for i_test = 1 : testnum
+                    drawnow;
                     testid = mod((i_test-1)*opts.batchSize:i_test*opts.batchSize-1,length(dbFmVal.label))+1;
-                    featmap_t = yul_read_featmap_from_bin(dbFmVal.path(testid), [112, 10, 512]);
+                    featmap_t = FmVal(:,:,:,testid);
                     class_t = dbFmVal.label(testid);
                     net.layers{end}.class = single(class_t);
                     featmap_gpu = gpuArray(featmap_t);
@@ -142,21 +146,22 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, net, info, varargin)
                                 'conserveMemoryDepth', true, ...
                                 'conserveMemory', false);
                     dzdy = res(end).x/opts.batchSize;
-                    loss_te(end+1) = gather(dzdy); 
+                    loss_t = loss_t + gather(dzdy);
                     t = gather(res(end-1).x);
                     t = reshape(t, 101, []);
-                    [~,p] = max(t);
-                    t = sum(p==class_t');
-                    acc_te(end+1) = t / opts.batchSize;
-                    figure(2)
-                    plot(loss_te, 'r');
-                    hold on;
-                    plot(acc_te, 'g');
-                    legend('loss_te', 'loss_te', 'Location', 'SouthWest');
-                    hold off;
-                    drawnow;
-                    save(sprintf('snapshot/net_%s_acc_%2.2f.mat', info, acc_te(end)*100), 'net');
+                    [~,t] = max(t);
+                    predicted(testid) = p;
                 end
+                loss_te(end+1) = loss_t / testnum; 
+                acc_te(end+1) = sum(predicted==dbFmVal.label) / length(dbFmVal.label);
+                figure(2)
+                plot(loss_te, 'r');
+                hold on;
+                plot(acc_te, 'g');
+                legend('loss_te', 'loss_te', 'Location', 'SouthWest');
+                hold off;
+                drawnow;
+                save(sprintf('snapshot/net_%s_acc_%2.2f.mat', info, acc_te(end)*100), 'net');
             end
         end % for ibatch
         save(sprintf('snapshot/net_iepoch%d.mat', iEpoch), 'net');
