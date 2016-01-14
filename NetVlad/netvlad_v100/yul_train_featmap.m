@@ -13,9 +13,10 @@ dbFm_test = yul_get_dbFm(dbVal, paths);
 dbFm_test.numVideos = 3779;
 dbFm_test.path(2605:2608)=[];
 dbFm_test.label(2605:2608)=[];
+%read featmap(needs large time)
 trainfeatmap = yul_read_featmap_from_bin(dbFm_train.path, [112, 10, 512]);
 testfeatmap = yul_read_featmap_from_bin(dbFm_test.path, [112, 10, 512]);
-load('snapshot/net_iepoch3.mat');
+load('snapshot/net0_pool5.mat');
 load('initdata\softmax_weight.mat');
 net.layers{5}.weights{1}(1,1,:,:) = gpuArray(weight);
 net.layers{5}.weightDecay(:) = 1e-12;

@@ -30,7 +30,7 @@ function clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn)
                 
                 % didn't want to complicate with batches here as it's only done once (per network and training set)
                 
-                fm= readbin(dbFm.path{iIm}, [240, 20, 512], 'single');
+                fm= readbin(dbFm.path{iIm}, [112, 10, 512], 'single');
                 
                 if opts.useGPU
                     fm= gpuArray(fm);

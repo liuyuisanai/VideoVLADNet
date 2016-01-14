@@ -126,10 +126,11 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, FmTrain, FmVal, net, in
             plot(loss_tr, 'r');
             hold on
             plot(acc_tr, 'g');
-            legend('loss_tr', 'loss_tr', 'Location', 'SouthWest');
+            legend('loss\_tr', 'acc\_tr', 'Location', 'SouthWest');
             hold off
             drawnow;
-            if mod(iBatch, floor(nBatches/4))==1
+            %test
+            if false
                 fprintf('Start testing...');
                 loss_t = 0;
                 predicted = [];
@@ -152,7 +153,7 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, FmTrain, FmVal, net, in
                     t = gather(res(end-1).x);
                     t = reshape(t, 101, []);
                     [~,t] = max(t);
-                    predicted(testid) = p;
+                    predicted(testid) = t;
                 end
                 toc;
                 loss_te(end+1) = loss_t / testnum; 
@@ -162,13 +163,50 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, FmTrain, FmVal, net, in
                 fprintf('=====Test loss:%.2f acc:%.2f\n=====', loss_te(end), acc_te(end));
                 hold on;
                 plot(acc_te, 'g');
-                legend('loss_te', 'loss_te', 'Location', 'SouthWest');
+                legend('loss\_te', 'acc\_te', 'Location', 'SouthWest');
                 hold off;
                 drawnow;
                 save(sprintf('snapshot/net_%s_acc_%2.2f.mat', info, acc_te(end)*100), 'net');
             end
         end % for ibatch
-        save(sprintf('snapshot/net_iepoch%d.mat', iEpoch), 'net');
+        
+            %Test
+            fprintf('Start testing...');
+            loss_t = 0;
+            predicted = [];
+            testnum = ceil(length(dbFmVal.label)/opts.batchSize);
+            tic
+            for i_test = 1 : testnum
+                drawnow;
+                fprintf('(%.2f%%)', i_test*100/testnum);
+                testid = mod((i_test-1)*opts.batchSize:i_test*opts.batchSize-1,length(dbFmVal.label))+1;
+                featmap_t = FmVal(:,:,:,testid);
+                class_t = dbFmVal.label(testid);
+                net.layers{end}.class = single(class_t);
+                featmap_gpu = gpuArray(featmap_t);
+                res= yul_simplenn(net, featmap_gpu, 1, [], ...
+                            'backPropDepth', opts.backPropDepth, ... % just for memory
+                            'conserveMemoryDepth', true, ...
+                            'conserveMemory', false);
+                dzdy = res(end).x/opts.batchSize;
+                loss_t = loss_t + gather(dzdy);
+                t = gather(res(end-1).x);
+                t = reshape(t, 101, []);
+                [~,t] = max(t);
+                predicted(testid) = t;
+            end
+            toc;
+            loss_te(end+1) = loss_t / testnum; 
+            acc_te(end+1) = sum(predicted==dbFmVal.label') / length(dbFmVal.label);
+            figure(2)
+            plot(loss_te, 'r');
+            fprintf('=====Test loss:%.2f acc:%.2f\n=====', loss_te(end), acc_te(end));
+            hold on;
+            plot(acc_te, 'g');
+            legend('loss\_te', 'acc\_te', 'Location', 'SouthWest');
+            hold off;
+            drawnow;
+            save(sprintf('snapshot/net_%s_acc_%2.2f.mat', info, acc_te(end)*100), 'net');
     end % for iepoch
 end
 
