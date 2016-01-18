@@ -1,4 +1,4 @@
-function net= yul_addLayers(net, opts, dbFm)
+function net= yul_addLayers(net, opts, dbFm, FmTrain)
     
     
     
@@ -47,12 +47,12 @@ function net= yul_addLayers(net, opts, dbFm)
         
         whichDesc= sprintf('%s_%s%s', opts.netID, opts.layerName, L2str);
         
-        k= 256;
+        k = 64;
         paths= yul_localPaths();
         trainDescFn= sprintf('%s%s_%s_traindescs.mat', paths.initData, dbFm.name, whichDesc);
         clstFn= sprintf('%s%s_%s_k%03d_clst.mat', paths.initData, dbFm.name, whichDesc, k);
         
-        clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn);
+        clsts= yul_getClusters(net, opts, clstFn, k, FmTrain, trainDescFn);
         
         load( trainDescFn, 'trainDescs');
         load( clstFn, 'clsts');

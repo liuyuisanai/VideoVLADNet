@@ -1,4 +1,4 @@
-function clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn)
+function clsts= yul_getClusters(net, opts, clstFn, k, FmTrain, trainDescFn)
     
     if ~exist(clstFn, 'file')
         
@@ -17,7 +17,7 @@ function clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn)
             nIm= ceil(nTrain/nPerImage);
             
             rng(43);
-            trainIDs= randsample(dbFm.numVideos, nIm);
+            trainIDs= randsample(size(FmTrain,4), nIm);
             
             nTotal= 0;
             
@@ -30,7 +30,7 @@ function clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn)
                 
                 % didn't want to complicate with batches here as it's only done once (per network and training set)
                 
-                fm= readbin(dbFm.path{iIm}, [112, 10, 512], 'single');
+                fm= FmTrain(:,:,:,iIm);
                 
                 if opts.useGPU
                     fm= gpuArray(fm);
@@ -69,7 +69,7 @@ function clsts= yul_getClusters(net, opts, clstFn, k, dbFm, trainDescFn)
         % ---------- Cluster descriptors
         
         relja_display('Computing clusters');
-        clsts= yael_kmeans(trainDescs, k, 'niter', 500, 'verbose', 2, 'seed', 43);
+        clsts= yael_kmeans(trainDescs, k, 'niter', 100, 'verbose', 2, 'seed', 43);
         clear trainDescs;
         
         save(clstFn, 'clsts');

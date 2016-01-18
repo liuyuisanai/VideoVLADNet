@@ -56,7 +56,7 @@ function net= yul_train_from_featmap(dbFmTrain, dbFmVal, FmTrain, FmVal, net, in
         iepoch_ = 1;
         net.lr = opts.learningRate;
         %% --- Add my layers
-        net= yul_addLayers(net, opts, dbFmTrain);
+        net= yul_addLayers(net, opts, dbFmTrain, FmTrain);
 
         %% --- Prepare for train
         net= netPrepareForTrain(net);

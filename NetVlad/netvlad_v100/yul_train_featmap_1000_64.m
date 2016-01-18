@@ -5,7 +5,7 @@ layerName = 'pool5';
 paths= yul_localPaths();
 dbTrain= yul_get_ucf101(paths, 'trainlist01.txt');
 dbVal= yul_get_ucf101(paths, 'testlist01.txt');
-lr= 0.01;
+lr= 0.001;
 net=[];
 
 %% Cannot modified
